@@ -1,9 +1,6 @@
 defmodule KopitiamV2Supervisor do
   def start_link do
-    import Supervisor.Spec
-
     children = [KopitiamV2]
-
     Supervisor.start_link(children, strategy: :one_for_one)
   end
 end
@@ -29,6 +26,19 @@ defmodule KopitiamV2 do
       "!raise" ->
         # This won't crash the entire Consumer.
         raise "No problems here!"
+
+      "!delete" ->
+        # Async Task
+        t =
+          Task.async(fn ->
+            Nostrum.Api.get_channel_messages(msg.channel_id, :infinity, {})
+          end)
+
+        {:ok, messages} = Task.await(t)
+
+        Task.start(fn ->
+          Enum.each(messages, &Api.delete_message(&1))
+        end)
 
       _ ->
         :ignore
